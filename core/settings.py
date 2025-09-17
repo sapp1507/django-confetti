@@ -27,34 +27,6 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-CONFETTI = {
-    'SEED_CATEGORIES': [
-        {'code': 'main', 'title': 'Планировщик'},
-        {'code': 'frontend', 'title': 'Настройки для фронта'},
-        {'code': 'backend', 'title': 'Настройки для бэка'},
-        {'code': 'scheduler', 'title': 'Планировщик'},
-    ], # [{'code': 'scheduler', 'title': 'Планировщик'}]
-    'SEED_DEFINITIONS': [
-        {
-            'key': 'celery.send_email',
-            'type': 'bool',
-            'category': 'backend',
-            'title':  'Отправлять почту через celery',
-            'description': 'При включенной настройки, вся почта будет отправляться через celery',
-            'default': True,
-            'editable': False,
-        },
-    ],
-    # {
-    #     'key': 'feature.scheduler.enable_jobs',
-    #     'type': "bool',
-    #     'category': 'scheduler',
-    #     'title': 'Включить планировщик',
-    #     'default': True,
-    # },
-}
-
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -148,3 +120,30 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+CONFETTI = {
+    'SEED_CATEGORIES': [
+        {'code': 'main', 'title': 'Планировщик'},
+        {'code': 'frontend', 'title': 'Настройки для фронта'},
+        {'code': 'backend', 'title': 'Настройки для бэка'},
+        {'code': 'scheduler', 'title': 'Планировщик'},
+    ], # [{'code': 'scheduler', 'title': 'Планировщик'}]
+    'SEED_DEFINITIONS': [
+        {
+            'key': 'celery.send_email',
+            'type': 'bool',
+            'category': 'backend',
+            'title':  'Отправлять почту через celery',
+            'description': 'При включенной настройки, вся почта будет отправляться через celery',
+            'default': True,
+            'editable': False,
+        },
+    ],
+    # {
+    #     'key': 'feature.scheduler.enable_jobs',
+    #     'type': "bool',
+    #     'category': 'scheduler',
+    #     'title': 'Включить планировщик',
+    #     'default': True,
+    # },
+}
