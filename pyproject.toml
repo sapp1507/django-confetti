@@ -9,7 +9,7 @@ description = "Config & feature settings for Django: global/user overrides, cach
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" } # или укажи "GPL-3.0-only" и замени README
-authors = [{ name = "Your Name", email = "you@example.com" }]
+authors = [{ name = "Sapp", email = "sapp1507@gmail.com" }]
 keywords = ["django", "settings", "feature-flags", "config"]
 classifiers = [
   "Framework :: Django",
@@ -29,7 +29,6 @@ dependencies = [
 [project.optional-dependencies]
 drf = ["djangorestframework>=3.14"]
 docs = ["drf-yasg>=1.21.5"]
-schedule = ["python-crontab>=3.0.0", "python-dateutil>=2.8.2"]
 
 [tool.setuptools.packages.find]
 where = ["."]
