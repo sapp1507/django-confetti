@@ -11,9 +11,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         only = None
-        if options['categories-only']:
+        if options.get('categories-only'):
             only = 'categories'
-        if options['definitions-only']:
+        if options.get('definitions-only'):
             only = 'definitions'
 
         stats = seed_from_settings(
@@ -24,6 +24,6 @@ class Command(BaseCommand):
         )
         self.stdout.write(
             self.style.SUCCESS(
-                f'Создано {stats["created"]} настроек и {stats["created_categories"]} категорий'
+                f'Создано {stats["created_definitions"]} настроек и {stats["created_categories"]} категорий'
             )
         )

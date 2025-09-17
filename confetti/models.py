@@ -102,6 +102,12 @@ class SettingValue(models.Model):
         help_text='Пользователь',
         related_name='settings'
     )
+    scope = models.CharField(
+        max_length=15,
+        choices=SettingScope.choices,
+        verbose_name='scope',
+        help_text='scope настройки'
+    )
     value = models.JSONField(null=True, blank=True)
 
     class Meta:

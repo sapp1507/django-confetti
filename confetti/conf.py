@@ -38,8 +38,10 @@ class _APISettings:
             if attr not in self._defaults:
                 raise AttributeError(f'{attr} not found in {SETTING_NAME} settings')
             val = self._defaults[attr]
-
-        val = _import_if_str(val)
+        try:
+            val = _import_if_str(val)
+        except Exception:
+            pass
         self._cached[attr] = val
         return val
 
