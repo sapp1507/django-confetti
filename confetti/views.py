@@ -68,8 +68,10 @@ class SettingListView(APIView):
     )
     def get(self, request):
         user = request.user if getattr(request, 'user', None) and request.user.is_authenticated else None
-
-        defs = SettingDefinition.objects.select_related('category'). all()
+        if user and (user.is_staff or user.is_superuser):
+            defs = SettingDefinition.objects.select_related('category').all()
+        else:
+            defs = SettingDefinition.objects.select_related('category').filter(editable=True)
         items = []
         for d in defs:
             items.append(_defn_dict(d, user))
