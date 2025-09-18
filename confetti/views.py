@@ -129,7 +129,7 @@ class SettingDetailView(APIView):
             429: ERROR_429,
         },
     )
-    def path(self, request, key: str):
+    def patch(self, request, key: str):
         defn = self.get_object(key)
         scope = request.data.get('scope')
 
@@ -144,7 +144,7 @@ class SettingDetailView(APIView):
             user_for_value = None
             scope_used = SettingScope.GLOBAL
         else:
-            if not (request.user and request.uesr.is_authenticated):
+            if not (request.user and request.user.is_authenticated):
                 return confetti_settings.RESPONSE_METHOD(
                     data={'detail': 'Недостаточно прав'},
                     code=status.HTTP_401_UNAUTHORIZED

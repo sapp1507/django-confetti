@@ -22,6 +22,7 @@ class openapi:
     if DRF_YASG_AVAILABLE:
         Schema = _openapi.Schema
         Response = _openapi.Response
+        Parameter = _openapi.Parameter
         TYPE_OBJECT = _openapi.TYPE_OBJECT
         TYPE_ARRAY = _openapi.TYPE_ARRAY
         TYPE_STRING = _openapi.TYPE_STRING
@@ -36,4 +37,7 @@ class openapi:
             def __init__(self, **kwargs): pass
 
         class Response:
+            def __init__(self, *args, **kwargs): pass
+
+        class Parameter:
             def __init__(self, *args, **kwargs): pass

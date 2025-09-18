@@ -2,31 +2,34 @@ import pytest
 from confetti.api import get, set_value
 from confetti.models import SettingScope, SettingDefinition
 from django.core.cache import cache
+from icecream import ic
 
 pytestmark = pytest.mark.django_db
 
 
 def test_get_returns_default_when_no_values():
-    # из сид-данных: ui.theme default=light
-    assert get("ui.theme") == "light"
+    """Проверяет получение настройки."""
+
+    assert get('ui.theme') == 'light'
 
 
 def test_global_then_user_override_precedence(user):
-    # глобально переопределим
-    set_value("ui.theme", "dark", scope=SettingScope.GLOBAL)
-    assert get("ui.theme") == "dark"
+    """Проверяет изменение user настроек, и что не трогает global."""
 
-    # для пользователя — персональное значение
-    set_value("ui.theme", "light", user=user)
-    assert get("ui.theme", user=user) == "light"     # юзер имеет приоритет
-    assert get("ui.theme") == "dark"                  # глобально осталось dark
+    set_value('ui.theme', 'dark', scope=SettingScope.GLOBAL)
+    assert get('ui.theme') == 'dark', f'Не сменилось глобальное значение {get("ui.theme")} != dark'
+
+    set_value('ui.theme', 'light', user=user)
+    assert get('ui.theme', user=user) == 'light', f'У user не сменилось значение {get("ui.theme", user=user)} != light'
+    assert get('ui.theme') == 'dark', f'Глобальная настройка изменилась {get("ui.theme")} != dark'
 
 
 def test_cache_invalidation_on_set(user):
-    # установим и попадём в кэш
-    set_value("feature.jobs", True, scope=SettingScope.GLOBAL)
-    assert get("feature.jobs") is True
+    """Простое изменение значений. проверка сброса кэш."""
+
+    set_value('feature.jobs', True, scope=SettingScope.GLOBAL)
+    assert get('feature.jobs') is True
 
     # теперь изменим значение → должно обновиться
-    set_value("feature.jobs", False, scope=SettingScope.GLOBAL)
-    assert get("feature.jobs") is False
+    set_value('feature.jobs', False, scope=SettingScope.GLOBAL)
+    assert get('feature.jobs') is False

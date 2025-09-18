@@ -1,7 +1,8 @@
+import icecream
 import pytest
 from django.urls import reverse
 
-drf = pytest.importorskip("rest_framework")
+drf = pytest.importorskip('rest_framework')
 from rest_framework.test import APIClient
 from rest_framework import status
 
@@ -14,12 +15,13 @@ def api_client():
 
 
 def test_list_settings_anonymous(api_client):
-    url = reverse("confetti:settings-list")
+    url = reverse('confetti:settings-list')
     r = api_client.get(url)
+    icecream.ic(r)
     assert r.status_code == status.HTTP_200_OK
     # проверим, что пришёл хотя бы наш сид-ключ
-    keys = {item["key"] for item in r.json()}
-    assert "feature.jobs" in keys
+    keys = {item['key'] for item in r.json()}
+    assert 'feature.jobs' in keys
 
 
 def test_get_setting_and_patch_user_scope(api_client, user):
@@ -27,16 +29,17 @@ def test_get_setting_and_patch_user_scope(api_client, user):
     api_client.force_authenticate(user=user)
 
     # GET
-    detail = reverse("confetti:settings-detail", kwargs={"key": "ui.theme"})
+    detail = reverse('confetti:settings-detail', kwargs={'key': 'ui.theme'})
     r_get = api_client.get(detail)
-    assert r_get.status_code == status.HTTP_200_OK
-    assert r_get.json()["effective"] in ("light", "dark")
+    assert r_get.status_code == status.HTTP_200_OK, f'Не получено по GET'
+    assert r_get.json()['effective'] in ('light', 'dark')
 
     # PATCH user override
-    r_patch = api_client.patch(detail, {"value": "dark"}, format="json")
-    assert r_patch.status_code == status.HTTP_200_OK
-    assert r_patch.json()["user_value"] == "dark"
-    assert r_patch.json()["effective"] == "dark"
+    r_patch = api_client.patch(detail, {'value': 'dark'}, format='json')
+    icecream.ic(r_patch.json())
+    assert r_patch.status_code == status.HTTP_200_OK,  f'Не изменено по PATCH'
+    assert r_patch.json()['user_value'] == 'dark'
+    assert r_patch.json()['effective'] == 'dark'
 
 
 def test_patch_global_requires_staff(api_client, user, django_user_model):

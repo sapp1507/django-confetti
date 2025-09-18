@@ -1,3 +1,4 @@
+import icecream
 from django.core.cache import cache
 
 from .models import SettingDefinition, SettingValue, SettingScope
@@ -19,7 +20,6 @@ def get(def_key: str, user=None, default=None):
         cached = cache.get(key)
         if cached is not None and (uid or key.endswith(':global')):
             return cached
-
     try:
         defn = SettingDefinition.objects.get(key=def_key, enabled=True)
     except SettingDefinition.DoesNotExist:
@@ -28,6 +28,7 @@ def get(def_key: str, user=None, default=None):
     # user override
     if uid:
         sv = SettingValue.objects.filter(definition=defn, scope=SettingScope.USER, user_id=uid).first()
+
         if sv and sv.value is not None:
             cache.set(_ck(def_key, uid), sv.value)
             return sv.value
@@ -37,7 +38,6 @@ def get(def_key: str, user=None, default=None):
     if gv and gv.value is not None:
         cache.set(_ck(def_key, None), gv.value)
         return gv.value
-
     return defn.default if defn.default is not None else default
 
 def set_value(def_key: str, value, user=None, scope=None):
@@ -55,7 +55,7 @@ def set_value(def_key: str, value, user=None, scope=None):
     )
     sv.value = value
     sv.save()
-    cache.delete(_ck(def_key, getattr(user, 'id', None)))
+    cache.set(_ck(def_key, sv.user_id if sv.scope == SettingScope.USER else None), value)
     return sv
 
 def is_enabled(flag_key: str, user=None, default=False) -> bool:

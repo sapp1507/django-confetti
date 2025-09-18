@@ -19,7 +19,7 @@ class SettingWriteSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         defn = self.context['definition']
-        value = attrs.get['value']
+        value = attrs.get('value')
         validated_value = validate_value(defn, value)
         attrs['value'] = validated_value
         return attrs

@@ -2,6 +2,8 @@
 import django
 import pytest
 from django.conf import settings as dj_settings
+from django.contrib.auth import get_user_model
+
 
 def pytest_configure():
     if not dj_settings.configured:
@@ -51,27 +53,44 @@ def pytest_configure():
 
     # дефолтные сид-данные для тестов
     dj_settings.CONFETTI = {
-        "AUTO_SEED": True,
-        "SEED_CATEGORIES": [
-            {"code": "scheduler", "title": "Планировщик"},
-            {"code": "ui", "title": "Интерфейс"},
+        'AUTO_SEED': True,
+        'SEED_CATEGORIES': [
+            {'code': 'scheduler', 'title': 'Планировщик'},
+            {'code': 'ui', "title": 'Интерфейс'},
         ],
-        "SEED_DEFINITIONS": [
-            {"key": "feature.jobs", "type": "bool", "category": "scheduler", "title": "Jobs", "default": True},
+        'SEED_DEFINITIONS': [
             {
-                "key": "ui.theme",
-                "type": "choice",
-                "category": "ui",
-                "title": "Theme",
-                "default": "light",
-                "choices": [{"value": "light", "label": "Light"}, {"value": "dark", "label": "Dark"}],
+                'key': 'feature.jobs',
+                'type': 'bool',
+                'category': 'scheduler',
+                'title': 'Jobs',
+                'default': True
+            },
+            {
+                'key': 'ui.theme',
+                'type': 'choice',
+                'category': 'ui',
+                'title': 'Theme',
+                'default': 'light',
+                'choices': [
+                    {
+                        'value': 'light',
+                        'label': 'Light'
+                    },
+                    {
+                        'value': 'dark',
+                        'label': 'Dark'
+                    }
+                ],
             },
         ],
     }
 
 @pytest.fixture
-def user(django_user_model, db):
-    return django_user_model.objects.create_user(username="u", email="u@example.com", password="p")
+def user(db):
+    User = get_user_model()
+    user, _ = User.objects.get_or_create(username='user', email='user@example.com')
+    return user
 
 @pytest.fixture(autouse=True)
 def _clear_cache_and_reload_confetti(settings):

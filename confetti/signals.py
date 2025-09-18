@@ -11,7 +11,7 @@ def purge_value_cache(sender, instance, **kwargs):
     Когда меняется конкретное значение (глобальное или пользовательское) —
     инвалидируем соответствующий кэш-ключ.
     """
-    cache.delete(_ck(instance.defnition.key,
+    cache.delete(_ck(instance.definition.key,
                      instance.user_id if instance.scope == SettingScope.USER else None))
 
 
