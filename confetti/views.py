@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import status, permissions
 from rest_framework.views import APIView
 
+from .api import set_value
 from .swagger_compat import swagger_auto_schema
 from .swagger_compat import openapi
 from .openapi import (SETTING_LIST_RESPONSE, ERROR_429, SETTING_DETAIL_RESPONSE, ERROR_404, ERROR_400, ERROR_401,
@@ -155,13 +156,19 @@ class SettingDetailView(APIView):
         serializer = SettingWriteSerializer(data=request.data, context={'definition': defn})
         serializer.is_valid(raise_exception=True)
 
-        sv, _ = SettingValue.objects.get_or_create(
-            definition=defn,
-            scope=scope_used,
-            user=user_for_value if scope_used == SettingScope.USER else None
+        # sv, _ = SettingValue.objects.get_or_create(
+        #     definition=defn,
+        #     scope=scope_used,
+        #     user=user_for_value if scope_used == SettingScope.USER else None
+        # )
+        # sv.value = serializer.validated_data['value']
+        # sv.save()
+        set_value(
+            defn.key,
+            serializer.validated_data['value'],
+            user=user_for_value if scope_used == SettingScope.USER else None,
+            scope=scope_used
         )
-        sv.value = serializer.validated_data['value']
-        sv.save()
         return confetti_settings.RESPONSE_METHOD(
             data=SettingItemSerializer(_defn_dict(defn, user_for_value)).data
         )

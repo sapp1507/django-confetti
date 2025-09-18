@@ -46,6 +46,7 @@ def set_value(def_key: str, value, user=None, scope=None):
     scope: None => USER если user передан, иначе GLOBAL.
     """
     defn = SettingDefinition.objects.get(key=def_key)
+
     value = validate_value(defn, value)
     if scope is None:
         scope = SettingScope.USER if user else SettingScope.GLOBAL
@@ -53,6 +54,8 @@ def set_value(def_key: str, value, user=None, scope=None):
     sv, _ = SettingValue.objects.get_or_create(
         definition=defn, scope=scope, user=user if scope == SettingScope.USER else None
     )
+    if not defn.editable:
+        value = defn.default
     sv.value = value
     sv.save()
     cache.set(_ck(def_key, sv.user_id if sv.scope == SettingScope.USER else None), value)

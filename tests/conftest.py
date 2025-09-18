@@ -56,7 +56,7 @@ def pytest_configure():
         'AUTO_SEED': True,
         'SEED_CATEGORIES': [
             {'code': 'scheduler', 'title': 'Планировщик'},
-            {'code': 'ui', "title": 'Интерфейс'},
+            {'code': 'ui', 'title': 'Интерфейс'},
         ],
         'SEED_DEFINITIONS': [
             {
@@ -65,6 +65,14 @@ def pytest_configure():
                 'category': 'scheduler',
                 'title': 'Jobs',
                 'default': True
+            },
+            {
+                'key': 'edit',
+                'type': 'bool',
+                'category': 'ui',
+                'title': 'Edit',
+                'default': False,
+                'editable': False,
             },
             {
                 'key': 'ui.theme',

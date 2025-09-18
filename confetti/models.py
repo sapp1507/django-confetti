@@ -36,7 +36,7 @@ class SettingDefinition(models.Model):
         help_text='Ключ настройки. Используется для обращения к настройке в коде',
         validators=[
             RegexValidator(
-                regex=r'^[a-z0-9_-.:]+$',
+                regex=r'^[a-z0-9_\.\-]+$',
                 message='Ключ настройки может состоять из латинских букв, цифр и знака подчеркивания',
                 code='invalid_key'
             )

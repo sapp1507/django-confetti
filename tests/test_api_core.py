@@ -33,3 +33,15 @@ def test_cache_invalidation_on_set(user):
     # теперь изменим значение → должно обновиться
     set_value('feature.jobs', False, scope=SettingScope.GLOBAL)
     assert get('feature.jobs') is False
+
+def test_edit_not_editable(user):
+    """Проверяет что нельзя изменить не редактируемую настройку."""
+    assert get('edit') == False
+
+    dfn = ic(SettingDefinition.objects.get(key='edit'))
+    assert dfn.editable is False
+
+    set_value('edit', True)
+    dfn = SettingDefinition.objects.get(key='edit')
+    assert dfn.editable is False
+    assert get('edit') == False
