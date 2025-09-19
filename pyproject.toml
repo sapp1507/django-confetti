@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "django-confetti"
+version = "0.1.0"
+description = "Config & feature settings for Django: global/user overrides, cache, API, seeding."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" } # или укажи "GPL-3.0-only" и замени README
+authors = [{ name = "Sapp", email = "sapp1507@gmail.com" }]
+keywords = ["django", "settings", "feature-flags", "config"]
+classifiers = [
+  "Framework :: Django",
+  "Framework :: Django :: 3.2",
+  "Framework :: Django :: 4",
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Intended Audience :: Developers",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+  "Django>=3.2",
+  # DRF и crontab/dateutil делаем опциональными
+]
+
+[project.optional-dependencies]
+drf = ["djangorestframework>=3.14"]
+docs = ["drf-yasg>=1.21.5"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["confetti*"]
+
+[tool.setuptools.package-data]
+confetti = ["migrations/*.py"]
