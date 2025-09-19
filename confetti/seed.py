@@ -74,7 +74,7 @@ def seed_from_settings(
                 'default': d.get('default'),
                 'choices': d.get('choices'),
                 'required': bool(d.get('required', False)),
-                'enabled': bool(d.get('required', True)),
+                'enabled': bool(d.get('enabled', True)),
                 'editable': bool(d.get('editable', True)),
                 'frontend': bool(d.get('frontend', False)),
             }
