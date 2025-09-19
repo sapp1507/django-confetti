@@ -30,7 +30,7 @@ pip install django_confetti
 ``` python 
 INSTALLED_APPS = [
     # ...
-    "confetti",
+    'confetti',
 ]
 ```
 
@@ -38,38 +38,40 @@ INSTALLED_APPS = [
 Настройка в ``settings.py``
 ```python
 CONFETTI = {
-    # Кастомный метод ответа (callable или "pkg.mod:func")
-    "RESPONSE_METHOD": "myproject.api.responses:api_response", # default rest_framework.response.Response or django.http.JsonResponse
+    'FRONTEND_CACHE_TIMEOUT': 300, # секунды
+    # Кастомный метод ответа (callable или 'pkg.mod:func')
+    'RESPONSE_METHOD': 'myproject.api.responses:api_response', # default rest_framework.response.Response or django.http.JsonResponse
 
     # Автосидирование дефолтных настроек
-    "AUTO_SEED": True,
+    'AUTO_SEED': True,
 
-    "SEED_CATEGORIES": [
-        {"code": "scheduler", "title": "Планировщик"},
-        {"code": "notifications", "title": "Уведомления"},
+    # Категории
+    'SEED_CATEGORIES': [
+        {'code': 'scheduler', 'title': 'Планировщик'},
+        {'code': 'notifications', 'title': 'Уведомления'},
     ],
-
-    "SEED_DEFINITIONS": [
-        {
-            "key": "feature.scheduler.enable_jobs",
-            "type": "bool",
-            "category": "scheduler",
-            "title": "Включить планировщик",
-            "default": True,
+    # Настройки
+    'SEED_DEFINITIONS': [
+        { 
+            'key': 'str',                               # required
+            'category': ForeignKey(SettingCategory),    # null=True
+            'type': SettingType.choices,                # required
+            'title': ChaField,                          # required
+            'description': TextField,                   # blank=True
+            'default': JSONFiled,                       # null=True
+            'choices': JSONField,                       # null=True
+            'required': False,                          # default
+            'enabled': True,                            # default
+            'editable': True,                           # default
+            'frontend': False,                          # default 
         },
         {
-            "key": "job.cleanup.schedule",
-            "type": "cron",
-            "category": "scheduler",
-            "title": "Cron очистки",
-            "default": "0 3 * * *",
-        },
-        {
-            "key": "notifications.email.enabled",
-            "type": "bool",
-            "category": "notifications",
-            "title": "Почтовые уведомления",
-            "default": True,
+          # Минимальный рекомендуемый набор параметров для создания
+            'key': 'notifications.email.enabled',
+            'type': 'bool',
+            'category': 'notifications',
+            'title': 'Почтовые уведомления',
+            'default': True,
         },
     ],
 }
@@ -80,17 +82,17 @@ CONFETTI = {
 from confetti.api import get, is_enabled, set_value
 from confetti.conf import confetti_settings
 
-# Получение значения
-jobs_enabled = is_enabled("feature.scheduler.enable_jobs")  # True / False
+# Получение значения Вкл\выкл настройки
+jobs_enabled = is_enabled('feature.scheduler.enable_jobs')  # True / False
 
 # Учитывает пользовательские override
-theme = get("ui.theme", user=request.user, default="light")
+theme = get('ui.theme', user=request.user, default='light')
 
 # Установка значения
-set_value("ui.theme", "dark", user=request.user)
+set_value('ui.theme', 'dark', user=request.user)
 
 # Универсальный ответ (DRF Response или JsonResponse)
-return confetti_settings.RESPONSE_METHOD(data={"status": "ok"}, status=200)
+return confetti_settings.RESPONSE_METHOD(data={'status': 'ok'}, status=200)
 
 ```
 
@@ -99,7 +101,7 @@ return confetti_settings.RESPONSE_METHOD(data={"status": "ok"}, status=200)
 # project/urls.py
 urlpatterns = [
     # ...
-    path("api/confetti/", include("confetti.urls", namespace="confetti")),
+    path('api/confetti/', include('confetti.urls', namespace='confetti')),
 ]
 ```
 
@@ -118,11 +120,11 @@ urlpatterns = [
     * ``PATCH /api/confetti/settings/<key>/``
 Обновить настройку.
 
-``scope="user"`` или без ``scope``: создаёт/обновляет пользовательское значение (требует авторизацию).
+``scope='user'`` или без ``scope``: создаёт/обновляет пользовательское значение (требует авторизацию).
 
-``scope="global"``: меняет глобальное значение (требует ``is_staff/is_superuser``).
+``scope='global'``: меняет глобальное значение (требует ``is_staff/is_superuser``).
 
-Удалять нельзя. Чтобы вернуть ``default``, можно передать ``{"value": null}``.
+Удалять нельзя. Чтобы вернуть ``default``, можно передать ``{'value': null}``.
 
 ## Управление через команды
 ```bash
@@ -149,6 +151,73 @@ python manage.py confetti_sync --dry-run
 pip install django_confetti[docs]
 ```
 
+## Поля модели
+* key
+  
+  Уникальный строковый идентификатор настройки.
+  Используется в коде через get("celery.send_email").
+  Хорошая практика — делать "namespace.key" (например, celery.send_email, ui.theme).
+
+
+* `type` (``models.SettingType``)
+  
+  Тип данных, который допускается для этой настройки. Поддерживаются:
+  * `bool` — булевы значения (вкл/выкл)
+  * `int`, float — числа
+  * `str` — строка
+  * `choice` — ограниченный список вариантов (задаётся в choices)
+  * `json` — произвольный JSON-объект
+  * `datetime`  — дата и время
+  * `duration` - целое положительное число в секундах
+
+
+* `category`
+
+  Ссылка на категорию (например, scheduler, ui, notifications).
+  Нужна для группировки настроек в админке, в API и для удобного поиска.
+
+* `title`
+
+  Человекочитаемое название настройки (для админки/документации).
+
+* `default`
+
+  Значение по умолчанию (используется, если нет ни глобального, ни пользовательского override).
+  Тип должен совпадать с `type`.
+
+* `description`
+
+  Текстовое описание, зачем нужна настройка.
+  Показывается в админке и может попадать в документацию API.
+
+* `required`
+
+  Флаг «обязательная настройка».
+
+  * Если True → значение должно быть задано (нельзя оставить null/None).
+
+  * Если False → допускается null (или fallback к default).
+
+* `enabled`
+
+  Флаг активности настройки.
+
+  * Если False → настройка считается выключенной (не доступна через API / может не отображаться в интерфейсе).
+
+  Полезно для временного отключения без удаления.
+
+* `editable`
+
+  Флаг «можно ли менять через админку/API».
+
+  * False → только чтение (например, «системная» настройка, задаётся через миграцию/сидер).
+
+  Полезно для защищённых фич или «констант».
+
+* `frontend`
+
+  Настройка указывает что она используется для клиента. (отдельная api для запроса фронт настроек)
+
 ## Архитектура
     
 * SettingCategory — категории для группировки.
@@ -167,3 +236,6 @@ pip install django_confetti[docs]
 * Django 3.2+
 * (опционально) Django REST Framework
 * (опционально) drf-yasg
+
+## Ссылка на github
+* https://github.com/sapp1507/django-confetti

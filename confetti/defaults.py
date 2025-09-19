@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 DEFAULTS = {
-    # Функция/класс ответа: можно передать объектом или строкой
+    'FRONTEND_CACHE_TIMEOUT': 300, # секунды
+    'FRONTEND_CACHE_PREFIX': 'confetti:v1:frontend',
     'CACHE_PREFIX': 'confetti:v1',
+    # Функция/класс ответа: можно передать объектом или строкой
     'RESPONSE_METHOD': 'confetti.responses.default_response',
     'AUTO_SEED': True,
     'SEED_CATEGORIES': [], # [{'code': 'scheduler', 'title': 'Планировщик'}]

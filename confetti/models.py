@@ -68,6 +68,7 @@ class SettingDefinition(models.Model):
     required = models.BooleanField(default=False)
     enabled = models.BooleanField(default=True)
     editable = models.BooleanField(default=True)
+    frontend = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['key']

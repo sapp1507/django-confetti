@@ -2,6 +2,8 @@ import icecream
 import pytest
 from django.urls import reverse
 
+from confetti.models import SettingDefinition
+
 drf = pytest.importorskip('rest_framework')
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -43,9 +45,53 @@ def test_get_setting_and_patch_user_scope(api_client, user):
 
 
 def test_patch_global_requires_staff(api_client, user, django_user_model):
-    staff = django_user_model.objects.create_user(username="s", password="p", is_staff=True)
+    staff = django_user_model.objects.create_user(username='s', password='p', is_staff=True)
     api_client.force_authenticate(user=staff)
-    detail = reverse("confetti:settings-detail", kwargs={"key": "feature.jobs"})
-    r = api_client.patch(detail, {"scope": "global", "value": False}, format="json")
+    detail = reverse('confetti:settings-detail', kwargs={'key': 'feature.jobs'})
+    r = api_client.patch(detail, {'scope': 'global', 'value': False}, format='json')
     assert r.status_code == status.HTTP_200_OK
-    assert r.json()["global_value"] is False
+    assert r.json()['global_value'] is False
+
+
+def test_frontend_cache_invalidation(api_client, user):
+    url = reverse('confetti:settings-frontend')
+    r = api_client.get(url)
+    assert r.status_code == status.HTTP_200_OK
+    data = r.data
+    assert data[0]['key'] == 'front'
+    assert data[0]['frontend'] == True
+    assert data[0]['default'] == True
+    assert data[0]['effective'] == True
+    assert len(data) == 1
+    defn = SettingDefinition.objects.get(key='front')
+    defn.default = False
+    defn.save()
+
+    r = api_client.get(url)
+    assert r.status_code == status.HTTP_200_OK
+    data = r.data
+    assert data[0]['key'] == 'front'
+    assert data[0]['frontend'] == True
+    assert data[0]['default'] == False
+    assert data[0]['effective'] == False
+
+def test_user_not_allowed_to_edit_not_editable_settings(api_client, user):
+    user.is_superuser = True
+    user.save()
+    api_client.force_authenticate(user=user)
+    url = reverse('confetti:settings-detail', kwargs={'key': 'edit'})
+    r = api_client.get(url, format='json')
+    assert r.status_code == status.HTTP_200_OK
+
+    r = api_client.patch(url, {'value': True}, format='json')
+    assert r.status_code == status.HTTP_200_OK
+
+    user.is_superuser = False
+    user.save()
+    api_client.force_authenticate(user=user)
+    url = reverse('confetti:settings-detail', kwargs={'key': 'edit'})
+    r = api_client.get(url, format='json')
+    assert r.status_code == status.HTTP_404_NOT_FOUND
+
+    r = api_client.patch(url, {'value': True}, format='json')
+    assert r.status_code == status.HTTP_404_NOT_FOUND

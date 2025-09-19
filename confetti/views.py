@@ -1,6 +1,7 @@
 from typing import Optional, Dict
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from rest_framework import status, permissions
 from rest_framework.views import APIView
 
@@ -42,7 +43,8 @@ def _defn_dict(defn, user=None) -> Dict:
         'default': defn.default,
         'global_value': gval,
         'user_value': uval if user else None,
-        'effective': eff if user else (gval if gval is not None else defn.default)
+        'effective': eff if user else (gval if gval is not None else defn.default),
+        'frontend': defn.frontend,
     }
 
 class SettingListView(APIView):
@@ -54,6 +56,9 @@ class SettingListView(APIView):
 
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
+
+    def get_queryset(self):
+        return SettingDefinition.objects.select_related('category').all()
 
     @swagger_auto_schema(
         operation_id='confetti_setting_list',
@@ -69,14 +74,42 @@ class SettingListView(APIView):
     def get(self, request):
         user = request.user if getattr(request, 'user', None) and request.user.is_authenticated else None
         if user and (user.is_staff or user.is_superuser):
-            defs = SettingDefinition.objects.select_related('category').all()
+            defs = self.get_queryset()
         else:
-            defs = SettingDefinition.objects.select_related('category').filter(editable=True)
+            defs = self.get_queryset().filter(editable=True)
         items = []
         for d in defs:
             items.append(_defn_dict(d, user))
 
         return confetti_settings.RESPONSE_METHOD(data=SettingItemSerializer(items, many=True).data)
+
+
+class SettingFrontendView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    @swagger_auto_schema(
+        operation_id='confetti_setting_frontend',
+        operation_description='Возвращает список всех frontend-настроек.',
+        tags=['confetti'],
+        responses={
+            200: SETTING_LIST_RESPONSE,
+            429: ERROR_429,
+        },
+    )
+    def get(self, request):
+
+        cache_frontend = cache.get(f'{confetti_settings.FRONTEND_CACHE_PREFIX}')
+        if cache_frontend:
+            return confetti_settings.RESPONSE_METHOD(
+                data=SettingItemSerializer(cache_frontend, many=True).data)
+
+        defs = SettingDefinition.objects.select_related('category').filter(frontend=True)
+        items = []
+        for defn in defs:
+            items.append(_defn_dict(defn))
+        cache.set(confetti_settings.FRONTEND_CACHE_PREFIX, items, confetti_settings.FRONTEND_CACHE_TIMEOUT)
+        return confetti_settings.RESPONSE_METHOD(data=SettingItemSerializer(items, many=True).data)
+
 
 
 class SettingDetailView(APIView):
@@ -88,8 +121,13 @@ class SettingDetailView(APIView):
     Удалять нельзя - только устанавливать значение (в т.ч. None
     """
 
-    def get_object(self, key: str) -> SettingDefinition:
-        return SettingDefinition.objects.select_related('category').get(key=key)
+    def get_object(self, key: str) -> SettingDefinition | None:
+        try:
+            if getattr(self.request, 'user', None) and self.request.user.is_superuser:
+                return SettingDefinition.objects.select_related('category').get(key=key)
+            return SettingDefinition.objects.select_related('category').get(key=key, editable=True)
+        except Exception:
+            return None
 
     @swagger_auto_schema(
         operation_id='confetti_setting_detail',
@@ -106,6 +144,11 @@ class SettingDetailView(APIView):
     )
     def get(self, request, key: str):
         defn = self.get_object(key)
+        if not defn:
+            return confetti_settings.RESPONSE_METHOD(
+                data={'message': 'Настройка не найдена'},
+                status=status.HTTP_404_NOT_FOUND)
+
         user = request.user if request.user.is_authenticated else None
         data = _defn_dict(defn, user)
         return confetti_settings.RESPONSE_METHOD(data=SettingItemSerializer(data).data)
@@ -134,6 +177,11 @@ class SettingDetailView(APIView):
     )
     def patch(self, request, key: str):
         defn = self.get_object(key)
+        if not defn:
+            return confetti_settings.RESPONSE_METHOD(
+                data={'message': 'Настройка не найдена'},
+                status=status.HTTP_404_NOT_FOUND)
+
         scope = request.data.get('scope')
 
         # Определяем целевой scope

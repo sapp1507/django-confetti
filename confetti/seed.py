@@ -76,6 +76,7 @@ def seed_from_settings(
                 'required': bool(d.get('required', False)),
                 'enabled': bool(d.get('required', True)),
                 'editable': bool(d.get('editable', True)),
+                'frontend': bool(d.get('frontend', False)),
             }
 
             obj, created = SettingDefinition.objects.get_or_create(key=key, defaults=defaults)

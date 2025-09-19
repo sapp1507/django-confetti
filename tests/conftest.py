@@ -75,6 +75,14 @@ def pytest_configure():
                 'editable': False,
             },
             {
+                'key': 'front',
+                'type': 'bool',
+                'category': 'ui',
+                'title': 'Front',
+                'default': True,
+                'frontend': True,
+            },
+            {
                 'key': 'ui.theme',
                 'type': 'choice',
                 'category': 'ui',

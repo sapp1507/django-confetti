@@ -2,6 +2,7 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.core.cache import cache
 from .models import SettingValue, SettingDefinition, SettingScope
+from .conf import confetti_settings
 from .api import _ck
 
 
@@ -29,6 +30,8 @@ def purge_definition_cache(sender, instance, **kwargs):
     ).only('user_id')
     for sv in user_vals:
         cache.delete(_ck(instance.key, sv.user_id))
+    if instance.frontend:
+        cache.delete(confetti_settings.FRONTEND_CACHE_PREFIX)
 
 def connect_confetti_signals() -> None:
     """
