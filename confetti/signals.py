@@ -3,7 +3,7 @@ from django.dispatch import receiver
 from django.core.cache import cache
 from .models import SettingValue, SettingDefinition, SettingScope
 from .conf import confetti_settings
-from .api import _ck
+from .api import _ck, _is_enabled_ck
 
 
 @receiver([post_save, post_delete], sender=SettingValue)
@@ -14,6 +14,8 @@ def purge_value_cache(sender, instance, **kwargs):
     """
     cache.delete(_ck(instance.definition.key,
                      instance.user_id if instance.scope == SettingScope.USER else None))
+    cache.delete(_is_enabled_ck(instance.definition.key,
+                                instance.user_id if instance.scope == SettingScope.USER else None))
 
 
 @receiver([post_save, post_delete], sender=SettingDefinition)
@@ -24,12 +26,14 @@ def purge_definition_cache(sender, instance, **kwargs):
       - и все ключи для пользовательских оверрайдов этой дефиниции
     """
     cache.delete(_ck(instance.key), None)
+    cache.delete(_is_enabled_ck(instance.key), None)
     user_vals =SettingValue.objects.filter(
         definition=instance,
         scope=SettingScope.USER,
     ).only('user_id')
     for sv in user_vals:
         cache.delete(_ck(instance.key, sv.user_id))
+        cache.delete(_is_enabled_ck(instance.key, sv.user_id))
     if instance.frontend:
         cache.delete(confetti_settings.FRONTEND_CACHE_PREFIX)
 

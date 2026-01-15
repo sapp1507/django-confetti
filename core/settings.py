@@ -145,6 +145,34 @@ CONFETTI = {
             'editable': False,
             'frontend': True
         },
+        {
+            'key': 'list',
+            'type': 'choices',
+            'category': 'backend',
+            'title': 'Тест списка',
+            'description': 'Для тестирования мультивыбора',
+            'default': [
+                {
+                    'key': 'admin',
+                    'title': 'Администратор',
+                    'value': 1
+                },
+            ],
+            'editable': False,
+            'frontend': True,
+            'choices': [
+                {
+                    'key': 'admin',
+                    'title': 'Администратор',
+                    'value': 1
+                },
+                {
+                    'key': 'org_admin',
+                    'title': 'Администратор организации',
+                    'value': 2
+                }
+            ]
+        },
     ],
     # {
     #     'key': 'str',

@@ -12,6 +12,8 @@ class SettingItemSerializer(serializers.Serializer):
     user_value = serializers.JSONField(allow_null=True)
     effective = serializers.JSONField(allow_null=True)
     frontend = serializers.BooleanField()
+    required = serializers.BooleanField()
+    editable = serializers.BooleanField()
 
 
 class SettingWriteSerializer(serializers.Serializer):

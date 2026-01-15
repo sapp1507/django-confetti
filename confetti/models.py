@@ -63,8 +63,13 @@ class SettingDefinition(models.Model):
         verbose_name='Описание',
         help_text='Описание настройки'
     )
-    default = models.JSONField(null=True, blank=True)
-    choices = models.JSONField(null=True, blank=True)
+    default = models.JSONField(null=True, blank=True, default=[])
+    choices = models.JSONField(
+        null=True,
+        blank=True,
+        default=[],
+        help_text='Список объектов, у объекта ключ value обязателен, этот ключ храниться в default в виде списка'
+    )
     required = models.BooleanField(default=False)
     enabled = models.BooleanField(default=True)
     editable = models.BooleanField(default=True)

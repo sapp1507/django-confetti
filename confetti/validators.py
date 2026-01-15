@@ -13,9 +13,10 @@ def validate_value(defn: 'SettingDefinition', value):
     elif t == SettingType.FLOAT: value = float(value)
     elif t == SettingType.STR: value = str(value)
     elif t == SettingType.CHOICE:
-        allowed = {c['value'] for c in (defn.choices or [])}
-        if value not in allowed:
-            raise ValueError(f'{defn.key} не допустимое имя для CHOICE')
+        allowed = [c['value'] for c in (defn.choices or [])]
+        for v in value:
+            if v not in allowed:
+                raise ValueError(f'{defn.key} не допустимое значение для CHOICE')
     elif t == SettingType.JSON:
         json.dumps(value)
     elif t == SettingType.DATETIME:
