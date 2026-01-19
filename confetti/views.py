@@ -45,6 +45,8 @@ def _defn_dict(defn, user=None) -> Dict:
         'user_value': uval if user else None,
         'effective': eff if user else (gval if gval is not None else defn.default),
         'frontend': defn.frontend,
+        'required': defn.required,
+        'editable': defn.editable,
     }
 
 class SettingListView(APIView):
