@@ -47,6 +47,8 @@ def _defn_dict(defn, user=None) -> Dict:
         'frontend': defn.frontend,
         'required': defn.required,
         'editable': defn.editable,
+        'choices': defn.choices,
+        'enabled': defn.enabled,
     }
 
 class SettingListView(APIView):
