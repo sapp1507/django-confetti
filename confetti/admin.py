@@ -5,6 +5,7 @@ import json
 from django import forms
 from django.contrib import admin, messages
 from django.db.models import Count, QuerySet
+from django.utils.html import escape, format_html
 
 from .api import _ck  # внутренний хелпер для кэш-ключей
 from .models import (
@@ -266,8 +267,8 @@ class SettingsSnapshotAdmin(admin.ModelAdmin):
     form = SettingsSnapshotAdminForm
     list_display = ("id", "created_at", "comment", "settings_count")
     search_fields = ("comment",)
-    readonly_fields = ("created_at", "settings_count", "pretty_payload")
-    fields = ("created_at", "comment", "settings_count", "pretty_payload", "payload")
+    readonly_fields = ("created_at", "settings_count", "comparison_report", "pretty_payload")
+    fields = ("created_at", "comment", "settings_count", "comparison_report", "pretty_payload", "payload")
     actions = [restore_settings_snapshot]
     ordering = ("-created_at", "-id")
 
@@ -278,3 +279,72 @@ class SettingsSnapshotAdmin(admin.ModelAdmin):
     @admin.display(description="Содержимое снимка")
     def pretty_payload(self, obj: SettingsSnapshot):
         return json.dumps(obj.payload, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def _build_snapshot_diff(
+        snapshot_payload: list[dict],
+        current_payload: list[dict],
+    ) -> dict:
+        snapshot_by_key = {item["key"]: item for item in snapshot_payload if item.get("key")}
+        current_by_key = {item["key"]: item for item in current_payload if item.get("key")}
+
+        snapshot_keys = set(snapshot_by_key)
+        current_keys = set(current_by_key)
+
+        only_in_snapshot = sorted(snapshot_keys - current_keys)
+        only_in_current = sorted(current_keys - snapshot_keys)
+        shared_keys = sorted(snapshot_keys & current_keys)
+
+        changed: list[dict] = []
+        unchanged_keys: list[str] = []
+
+        for key in shared_keys:
+            snapshot_item = snapshot_by_key[key]
+            current_item = current_by_key[key]
+            different_fields = sorted(
+                field_name
+                for field_name in (set(snapshot_item.keys()) | set(current_item.keys()))
+                if snapshot_item.get(field_name) != current_item.get(field_name)
+            )
+            if different_fields:
+                changed.append(
+                    {
+                        "key": key,
+                        "different_fields": different_fields,
+                        "snapshot": snapshot_item,
+                        "current": current_item,
+                    }
+                )
+            else:
+                unchanged_keys.append(key)
+
+        return {
+            "counts": {
+                "snapshot_total": len(snapshot_payload),
+                "current_total": len(current_payload),
+                "only_in_snapshot": len(only_in_snapshot),
+                "only_in_current": len(only_in_current),
+                "changed": len(changed),
+                "unchanged": len(unchanged_keys),
+            },
+            "only_in_snapshot": [
+                {"key": key, "snapshot": snapshot_by_key[key]}
+                for key in only_in_snapshot
+            ],
+            "only_in_current": [
+                {"key": key, "current": current_by_key[key]}
+                for key in only_in_current
+            ],
+            "changed": changed,
+            "unchanged_keys": unchanged_keys,
+        }
+
+    @admin.display(description="Сравнение с текущими настройками")
+    def comparison_report(self, obj: SettingsSnapshot):
+        if obj.pk is None:
+            return "Сохраните снимок, чтобы увидеть сравнение."
+
+        current_payload = build_global_settings_snapshot_payload()
+        diff = self._build_snapshot_diff(obj.payload or [], current_payload)
+        rendered = escape(json.dumps(diff, ensure_ascii=False, indent=2))
+        return format_html("<pre>{}</pre>", rendered)
