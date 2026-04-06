@@ -1,18 +1,25 @@
 from __future__ import annotations
 
+import json
+
 from django import forms
 from django.contrib import admin, messages
 from django.db.models import QuerySet
 
+from .api import _ck  # внутренний хелпер для кэш-ключей
 from .models import (
     SettingCategory,
     SettingDefinition,
-    SettingValue,
     SettingScope,
+    SettingsSnapshot,
     SettingType,
+    SettingValue,
+)
+from .services import (
+    build_global_settings_snapshot_payload,
+    restore_global_settings_snapshot,
 )
 from .validators import validate_value
-from .api import _ck  # внутренний хелпер для кэш-ключей
 
 
 # ---------------------------
@@ -70,6 +77,12 @@ class SettingValueAdminForm(forms.ModelForm):
         return cleaned
 
 
+class SettingsSnapshotAdminForm(forms.ModelForm):
+    class Meta:
+        model = SettingsSnapshot
+        fields = "__all__"
+
+
 # ---------------------------
 # Inlines
 # ---------------------------
@@ -90,7 +103,7 @@ class SettingValueInline(admin.TabularInline):
 @admin.action(description="Очистить кэш для выбранных настроек")
 def clear_cache_for_definitions(modeladmin, request, queryset: QuerySet[SettingDefinition]):
     from django.core.cache import cache
-    from .models import SettingValue, SettingScope
+    from .models import SettingScope, SettingValue
 
     cleared = 0
     for d in queryset:
@@ -108,6 +121,42 @@ def clear_cache_for_definitions(modeladmin, request, queryset: QuerySet[SettingD
     modeladmin.message_user(
         request,
         f"Инвалидировано кэш-ключей: {cleared}",
+        level=messages.SUCCESS,
+    )
+
+
+@admin.action(description="Сохранить снимок всех глобальных настроек")
+def create_settings_snapshot(modeladmin, request, queryset: QuerySet[SettingDefinition]):
+    payload = build_global_settings_snapshot_payload()
+    snapshot = SettingsSnapshot.objects.create(
+        payload=payload,
+        comment=f"Снимок через action, выбранных настроек: {queryset.count()}",
+    )
+    modeladmin.message_user(
+        request,
+        f"Создан снимок #{snapshot.pk}. В снимке: {len(payload)} настроек.",
+        level=messages.SUCCESS,
+    )
+
+
+@admin.action(description="Восстановить настройки из выбранного снимка")
+def restore_settings_snapshot(modeladmin, request, queryset: QuerySet[SettingsSnapshot]):
+    snapshot = queryset.order_by("-created_at", "-id").first()
+    if snapshot is None:
+        modeladmin.message_user(request, "Не выбран снимок для восстановления.", level=messages.WARNING)
+        return
+
+    result = restore_global_settings_snapshot(snapshot.payload)
+    modeladmin.message_user(
+        request,
+        (
+            f"Восстановлен снимок #{snapshot.pk}. "
+            f"Настроек создано: {result.created_definitions}, "
+            f"обновлено: {result.updated_definitions}, "
+            f"категорий создано: {result.created_categories}, "
+            f"категорий обновлено: {result.updated_categories}, "
+            f"глобальных значений обновлено: {result.updated_global_values}."
+        ),
         level=messages.SUCCESS,
     )
 
@@ -132,7 +181,7 @@ class SettingDefinitionAdmin(admin.ModelAdmin):
     search_fields = ("key", "title", "description")
     ordering = ("key",)
     inlines = [SettingValueInline]
-    actions = [clear_cache_for_definitions]
+    actions = [clear_cache_for_definitions, create_settings_snapshot]
     autocomplete_fields = ()  # на будущее
     readonly_fields = ()
 
@@ -163,3 +212,22 @@ class SettingValueAdmin(admin.ModelAdmin):
         v = obj.value
         s = str(v)
         return s if len(s) <= 120 else s[:117] + "…"
+
+
+@admin.register(SettingsSnapshot)
+class SettingsSnapshotAdmin(admin.ModelAdmin):
+    form = SettingsSnapshotAdminForm
+    list_display = ("id", "created_at", "comment", "settings_count")
+    search_fields = ("comment",)
+    readonly_fields = ("created_at", "settings_count", "pretty_payload")
+    fields = ("created_at", "comment", "settings_count", "pretty_payload", "payload")
+    actions = [restore_settings_snapshot]
+    ordering = ("-created_at", "-id")
+
+    @admin.display(description="Кол-во настроек")
+    def settings_count(self, obj: SettingsSnapshot):
+        return len(obj.payload or [])
+
+    @admin.display(description="Содержимое снимка")
+    def pretty_payload(self, obj: SettingsSnapshot):
+        return json.dumps(obj.payload, ensure_ascii=False, indent=2)
