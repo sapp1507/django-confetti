@@ -42,7 +42,7 @@ def test_build_global_settings_snapshot_payload_stores_definition_and_global_val
     assert item["has_global_value"] is True
 
 
-def test_restore_snapshot_creates_missing_settings_and_does_not_touch_extra_ones():
+def test_restore_snapshot_creates_missing_settings_and_removes_extra_ones():
     extra_category = SettingCategory.objects.create(code="extra", title="Extra")
     SettingDefinition.objects.create(
         key="feature.extra",
@@ -74,7 +74,8 @@ def test_restore_snapshot_creates_missing_settings_and_does_not_touch_extra_ones
     result = restore_global_settings_snapshot(snapshot.payload)
 
     assert result.created_definitions == 1
-    assert SettingDefinition.objects.filter(key="feature.extra").exists()
+    assert result.deleted_definitions >= 1
+    assert not SettingDefinition.objects.filter(key="feature.extra").exists()
 
     restored = SettingDefinition.objects.get(key="feature.missing")
     assert restored.category.code == "restored"
