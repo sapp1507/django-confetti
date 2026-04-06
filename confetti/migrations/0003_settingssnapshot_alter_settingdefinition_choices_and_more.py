@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("confetti", "0001_initial"),
+        ("confetti", "0002_alter_settingdefinition_choices_and_more"),
     ]
 
     operations = [
