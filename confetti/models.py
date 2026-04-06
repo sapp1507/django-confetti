@@ -78,6 +78,21 @@ class SettingDefinition(models.Model):
     class Meta:
         ordering = ['key']
 
+    def save(self, *args, **kwargs):
+        if self.type == SettingType.BOOL:
+            should_sync_default = self.pk is None
+            if self.pk is not None:
+                previous_enabled = (
+                    SettingDefinition.objects
+                    .filter(pk=self.pk)
+                    .values_list('enabled', flat=True)
+                    .first()
+                )
+                should_sync_default = previous_enabled != self.enabled
+            if should_sync_default:
+                self.default = self.enabled
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.key
 
