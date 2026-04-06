@@ -8,6 +8,10 @@ class SettingCategory(models.Model):
     code = models.SlugField(unique=True, max_length=64)
     title = models.CharField(max_length=128)
 
+    class Meta:
+        verbose_name = 'Категория настройки'
+        verbose_name_plural = 'Категории настроек'
+
     def __str__(self):
         return self.title
 
@@ -77,6 +81,8 @@ class SettingDefinition(models.Model):
 
     class Meta:
         ordering = ['key']
+        verbose_name = 'Настройка'
+        verbose_name_plural = 'Настройки'
 
     def save(self, *args, **kwargs):
         if self.type == SettingType.BOOL:
@@ -132,6 +138,8 @@ class SettingValue(models.Model):
     value = models.JSONField(null=True, blank=True)
 
     class Meta:
+        verbose_name = 'Значение настройки'
+        verbose_name_plural = 'Значения настроек'
         constraints = [
             UniqueConstraint(fields=['definition', 'scope', 'user'], name='unique_setting_value')
         ]

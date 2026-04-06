@@ -199,6 +199,12 @@ class SettingDefinitionAdmin(admin.ModelAdmin):
         "frontend",
         ("description", admin.EmptyFieldListFilter),
     )
+    list_editable = (
+        "required",
+        "enabled",
+        "editable",
+        "frontend",
+    )
     search_fields = ("key", "title", "description", "category__code", "category__title")
     ordering = ("category__code", "key")
     list_select_related = ("category",)
