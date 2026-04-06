@@ -126,7 +126,7 @@ def clear_cache_for_definitions(modeladmin, request, queryset: QuerySet[SettingD
     )
 
 
-@admin.action(description="Сохранить снимок всех глобальных настроек")
+@admin.action(description="Сохранить snapshot (снимок) всех глобальных настроек")
 def create_settings_snapshot(modeladmin, request, queryset: QuerySet[SettingDefinition]):
     payload = build_global_settings_snapshot_payload()
     snapshot = SettingsSnapshot.objects.create(
@@ -140,7 +140,7 @@ def create_settings_snapshot(modeladmin, request, queryset: QuerySet[SettingDefi
     )
 
 
-@admin.action(description="Восстановить настройки из выбранного снимка")
+@admin.action(description="Восстановить настройки из snapshot (лишние настройки будут удалены)")
 def restore_settings_snapshot(modeladmin, request, queryset: QuerySet[SettingsSnapshot]):
     snapshot = queryset.order_by("-created_at", "-id").first()
     if snapshot is None:
@@ -156,7 +156,8 @@ def restore_settings_snapshot(modeladmin, request, queryset: QuerySet[SettingsSn
             f"обновлено: {result.updated_definitions}, "
             f"категорий создано: {result.created_categories}, "
             f"категорий обновлено: {result.updated_categories}, "
-            f"глобальных значений обновлено: {result.updated_global_values}."
+            f"глобальных значений обновлено: {result.updated_global_values}, "
+            f"удалено лишних настроек: {result.deleted_definitions}."
         ),
         level=messages.SUCCESS,
     )
@@ -267,8 +268,8 @@ class SettingsSnapshotAdmin(admin.ModelAdmin):
     form = SettingsSnapshotAdminForm
     list_display = ("id", "created_at", "comment", "settings_count")
     search_fields = ("comment",)
-    readonly_fields = ("created_at", "settings_count", "comparison_report", "pretty_payload")
-    fields = ("created_at", "comment", "settings_count", "comparison_report", "pretty_payload", "payload")
+    readonly_fields = ("created_at", "settings_count", "restore_mechanics", "comparison_report", "pretty_payload")
+    fields = ("created_at", "comment", "settings_count", "restore_mechanics", "comparison_report", "pretty_payload", "payload")
     actions = [restore_settings_snapshot]
     ordering = ("-created_at", "-id")
 
@@ -338,6 +339,15 @@ class SettingsSnapshotAdmin(admin.ModelAdmin):
             "changed": changed,
             "unchanged_keys": unchanged_keys,
         }
+
+
+    @admin.display(description="Как работает snapshot")
+    def restore_mechanics(self, obj: SettingsSnapshot):
+        return (
+            "Restore применяет данные из payload к текущему реестру: "
+            "обновляет существующие настройки, создает отсутствующие, "
+            "обновляет глобальные значения и удаляет настройки, которых нет в snapshot."
+        )
 
     @admin.display(description="Сравнение с текущими настройками")
     def comparison_report(self, obj: SettingsSnapshot):

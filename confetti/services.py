@@ -36,6 +36,7 @@ class RestoreResult:
     created_categories: int = 0
     updated_categories: int = 0
     updated_global_values: int = 0
+    deleted_definitions: int = 0
 
 
 def build_global_settings_snapshot_payload() -> list[dict[str, Any]]:
@@ -77,6 +78,21 @@ def build_global_settings_snapshot_payload() -> list[dict[str, Any]]:
 @transaction.atomic
 def restore_global_settings_snapshot(payload: list[dict[str, Any]]) -> RestoreResult:
     result = RestoreResult()
+
+    snapshot_keys = {
+        item.get("key")
+        for item in payload
+        if item.get("key")
+    }
+    stale_definitions = SettingDefinition.objects.exclude(key__in=snapshot_keys)
+
+    stale_keys = list(stale_definitions.values_list("key", flat=True))
+    result.deleted_definitions = stale_definitions.count()
+    stale_definitions.delete()
+
+    for stale_key in stale_keys:
+        cache.delete(_ck(stale_key, None))
+        cache.delete(_is_enabled_ck(stale_key, None))
 
     for item in payload:
         category_obj = None
