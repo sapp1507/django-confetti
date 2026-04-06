@@ -10,6 +10,28 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.AlterModelOptions(
+            name="settingcategory",
+            options={
+                "verbose_name": "Категория настройки",
+                "verbose_name_plural": "Категории настроек",
+            },
+        ),
+        migrations.AlterModelOptions(
+            name="settingdefinition",
+            options={
+                "ordering": ["key"],
+                "verbose_name": "Настройка",
+                "verbose_name_plural": "Настройки",
+            },
+        ),
+        migrations.AlterModelOptions(
+            name="settingvalue",
+            options={
+                "verbose_name": "Значение настройки",
+                "verbose_name_plural": "Значения настроек",
+            },
+        ),
         migrations.CreateModel(
             name="SettingsSnapshot",
             fields=[
