@@ -124,3 +124,26 @@ class SettingValue(models.Model):
     def __str__(self):
         user_part = self.user_id if self.user_id is not None else '-'
         return f'{self.definition.key} [{self.scope} {user_part}]'
+
+
+class SettingsSnapshot(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Время создания')
+    comment = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name='Комментарий',
+        help_text='Комментарий к снимку настроек'
+    )
+    payload = models.JSONField(
+        default=list,
+        verbose_name='Снимок данных',
+        help_text='Полный снимок глобальных настроек'
+    )
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+        verbose_name = 'Снимок настроек'
+        verbose_name_plural = 'Снимки настроек'
+
+    def __str__(self):
+        return f'Снимок #{self.pk} ({self.created_at:%Y-%m-%d %H:%M:%S})'
