@@ -4,7 +4,7 @@ import json
 
 from django import forms
 from django.contrib import admin, messages
-from django.db.models import QuerySet
+from django.db.models import Count, QuerySet
 
 from .api import _ck  # внутренний хелпер для кэш-ключей
 from .models import (
@@ -176,18 +176,65 @@ class SettingCategoryAdmin(admin.ModelAdmin):
 @admin.register(SettingDefinition)
 class SettingDefinitionAdmin(admin.ModelAdmin):
     form = SettingDefinitionAdminForm
-    list_display = ("key", "category", "type", "enabled", "editable")
-    list_filter = ("category", "type", "enabled", "editable")
-    search_fields = ("key", "title", "description")
-    ordering = ("key",)
+    list_display = (
+        "key",
+        "title",
+        "category",
+        "type",
+        "required",
+        "enabled",
+        "editable",
+        "frontend",
+        "values_count",
+        "short_description",
+    )
+    list_filter = (
+        "category",
+        "type",
+        "required",
+        "enabled",
+        "editable",
+        "frontend",
+        ("description", admin.EmptyFieldListFilter),
+    )
+    search_fields = ("key", "title", "description", "category__code", "category__title")
+    ordering = ("category__code", "key")
+    list_select_related = ("category",)
+    list_display_links = ("key", "title")
+    list_per_page = 50
     inlines = [SettingValueInline]
     actions = [clear_cache_for_definitions, create_settings_snapshot]
     autocomplete_fields = ()  # на будущее
-    readonly_fields = ()
+    readonly_fields = ("values_count",)
+    fieldsets = (
+        ("Идентификация", {
+            "fields": ("key", "title", "description", "category"),
+        }),
+        ("Тип и значения", {
+            "fields": ("type", "default", "choices", "required"),
+        }),
+        ("Управление доступностью", {
+            "fields": ("enabled", "editable", "frontend"),
+        }),
+        ("Статистика", {
+            "fields": ("values_count",),
+        }),
+    )
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.select_related("category")
+        return qs.select_related("category").annotate(_values_count=Count("values"))
+
+    @admin.display(description="Значений", ordering="_values_count")
+    def values_count(self, obj: SettingDefinition):
+        return getattr(obj, "_values_count", 0)
+
+    @admin.display(description="Описание")
+    def short_description(self, obj: SettingDefinition):
+        if not obj.description:
+            return "—"
+        text = obj.description.strip()
+        return text if len(text) <= 120 else text[:117] + "…"
 
 
 @admin.register(SettingValue)
