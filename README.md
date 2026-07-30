@@ -72,6 +72,7 @@ CONFETTI = {
     "FRONTEND_CACHE_PREFIX": "confetti:v1:frontend",
     "FRONTEND_CACHE_TIMEOUT": 300,
     "RESPONSE_METHOD": "confetti.responses.default_response",
+    "RESPONSE_STATUS_KWARG": "status",
     "AUTO_SEED": True,
     "SEED_CATEGORIES": [
         {"code": "notifications", "title": "Уведомления"},
@@ -106,8 +107,31 @@ CONFETTI = {
 ```
 
 `RESPONSE_METHOD` принимает callable либо строку вида
-`"package.module:function"`/`"package.module.function"`. Callable должен
-поддерживать keyword-аргументы `data` и `status`.
+`"package.module:function"`/`"package.module.function"`.
+`RESPONSE_STATUS_KWARG` задаёт имя keyword-аргумента, через который callback
+получает HTTP status code; по умолчанию используется `status`. Callable всегда
+должен поддерживать аргумент `data` и настроенный аргумент HTTP-кода.
+
+Например, существующую фабрику с HTTP-аргументом `code` можно подключить без
+дополнительной обёртки:
+
+```python
+CONFETTI = {
+    "RESPONSE_METHOD": "utils.responses:success_response",
+    "RESPONSE_STATUS_KWARG": "code",
+}
+
+
+def success_response(data=None, code=200, status="success"):
+    return Response(
+        {"status": status, "data": {} if data is None else data},
+        status=code,
+    )
+```
+
+В этом примере `code` управляет HTTP status code, а `status` остаётся строковым
+полем response body. Confetti явно передаёт настроенный аргумент и не пытается
+определить его имя по сигнатуре callback.
 
 ## Python API
 

@@ -10,9 +10,10 @@ from .swagger_compat import swagger_auto_schema
 from .swagger_compat import openapi
 from .openapi import (SETTING_LIST_RESPONSE, ERROR_429, SETTING_DETAIL_RESPONSE, ERROR_404, ERROR_400, ERROR_401,
                       ERROR_403)
-from .models import SettingDefinition, SettingValue, SettingScope
-from .serializers import SettingItemSerializer, SettingWriteSerializer
 from .conf import confetti_settings
+from .models import SettingDefinition, SettingValue, SettingScope
+from .responses import build_response
+from .serializers import SettingItemSerializer, SettingWriteSerializer
 
 
 User = get_user_model()
@@ -85,7 +86,7 @@ class SettingListView(APIView):
         for d in defs:
             items.append(_defn_dict(d, user))
 
-        return confetti_settings.RESPONSE_METHOD(data=SettingItemSerializer(items, many=True).data)
+        return build_response(data=SettingItemSerializer(items, many=True).data)
 
 
 class SettingFrontendView(APIView):
@@ -107,7 +108,7 @@ class SettingFrontendView(APIView):
             _CACHE_MISS,
         )
         if cache_frontend is not _CACHE_MISS:
-            return confetti_settings.RESPONSE_METHOD(
+            return build_response(
                 data=SettingItemSerializer(cache_frontend, many=True).data)
 
         defs = SettingDefinition.objects.select_related('category').filter(frontend=True)
@@ -115,7 +116,7 @@ class SettingFrontendView(APIView):
         for defn in defs:
             items.append(_defn_dict(defn))
         cache.set(confetti_settings.FRONTEND_CACHE_PREFIX, items, confetti_settings.FRONTEND_CACHE_TIMEOUT)
-        return confetti_settings.RESPONSE_METHOD(data=SettingItemSerializer(items, many=True).data)
+        return build_response(data=SettingItemSerializer(items, many=True).data)
 
 
 
@@ -152,13 +153,13 @@ class SettingDetailView(APIView):
     def get(self, request, key: str):
         defn = self.get_object(key)
         if not defn:
-            return confetti_settings.RESPONSE_METHOD(
+            return build_response(
                 data={'message': 'Настройка не найдена'},
                 status=status.HTTP_404_NOT_FOUND)
 
         user = request.user if request.user.is_authenticated else None
         data = _defn_dict(defn, user)
-        return confetti_settings.RESPONSE_METHOD(data=SettingItemSerializer(data).data)
+        return build_response(data=SettingItemSerializer(data).data)
 
     @swagger_auto_schema(
         operation_id='confetti_setting_patch',
@@ -185,14 +186,14 @@ class SettingDetailView(APIView):
     def patch(self, request, key: str):
         defn = self.get_object(key)
         if not defn:
-            return confetti_settings.RESPONSE_METHOD(
+            return build_response(
                 data={'message': 'Настройка не найдена'},
                 status=status.HTTP_404_NOT_FOUND)
 
         scope = request.data.get('scope')
 
         if scope not in (None, SettingScope.USER, SettingScope.GLOBAL):
-            return confetti_settings.RESPONSE_METHOD(
+            return build_response(
                 data={'detail': 'Недопустимое значение scope'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -200,7 +201,7 @@ class SettingDetailView(APIView):
         # Определяем целевой scope
         if scope == SettingScope.GLOBAL:
             if not (request.user and request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser)):
-                return confetti_settings.RESPONSE_METHOD(
+                return build_response(
                     data={'detail': 'Недостаточно прав'},
                     status=status.HTTP_403_FORBIDDEN,
                 )
@@ -209,7 +210,7 @@ class SettingDetailView(APIView):
             scope_used = SettingScope.GLOBAL
         else:
             if not (request.user and request.user.is_authenticated):
-                return confetti_settings.RESPONSE_METHOD(
+                return build_response(
                     data={'detail': 'Недостаточно прав'},
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
@@ -217,7 +218,11 @@ class SettingDetailView(APIView):
             scope_used = SettingScope.USER
 
         serializer = SettingWriteSerializer(data=request.data, context={'definition': defn})
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            return build_response(
+                data=serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # sv, _ = SettingValue.objects.get_or_create(
         #     definition=defn,
@@ -234,10 +239,10 @@ class SettingDetailView(APIView):
                 scope=scope_used
             )
         except (TypeError, ValueError) as exc:
-            return confetti_settings.RESPONSE_METHOD(
+            return build_response(
                 data={'value': [str(exc)]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        return confetti_settings.RESPONSE_METHOD(
+        return build_response(
             data=SettingItemSerializer(_defn_dict(defn, user_for_value)).data
         )

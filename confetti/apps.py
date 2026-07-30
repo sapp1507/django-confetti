@@ -8,6 +8,8 @@ class ConfettiConfig(AppConfig):
     verbose_name = 'Confetti settings'
 
     def ready(self):
+        from . import checks  # noqa: F401
+
         from .signals import connect_confetti_signals
         connect_confetti_signals()
 

@@ -6,6 +6,8 @@ DEFAULTS = {
     'CACHE_PREFIX': 'confetti:v1',
     # Функция/класс ответа: можно передать объектом или строкой
     'RESPONSE_METHOD': 'confetti.responses.default_response',
+    # Имя keyword-аргумента, через который RESPONSE_METHOD получает HTTP-код
+    'RESPONSE_STATUS_KWARG': 'status',
     'AUTO_SEED': True,
     'SEED_CATEGORIES': [], # [{'code': 'scheduler', 'title': 'Планировщик'}]
     'SEED_DEFINITIONS': [],

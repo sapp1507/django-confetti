@@ -206,3 +206,73 @@ def test_staff_cannot_access_not_editable_setting(api_client, django_user_model)
 
     assert api_client.get(detail).status_code == status.HTTP_404_NOT_FOUND
     assert api_client.patch(detail, {'value': True}, format='json').status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_custom_response_status_kwarg_covers_success_and_view_errors(
+    api_client,
+    user,
+    settings,
+):
+    settings.CONFETTI = {
+        **settings.CONFETTI,
+        'RESPONSE_METHOD': 'tests.responses:custom_response',
+        'RESPONSE_STATUS_KWARG': 'code',
+    }
+
+    success = api_client.get(reverse('confetti:settings-list'))
+    assert success.status_code == status.HTTP_200_OK
+    assert success.json()['status'] == 'success'
+    assert isinstance(success.json()['data'], list)
+
+    detail = reverse('confetti:settings-detail', kwargs={'key': 'ui.theme'})
+    api_client.force_authenticate(user=user)
+    serializer_error = api_client.patch(
+        detail,
+        {'value': 'system'},
+        format='json',
+    )
+    assert serializer_error.status_code == status.HTTP_400_BAD_REQUEST
+    assert serializer_error.json()['status'] == 'success'
+    assert 'value' in serializer_error.json()['data']
+
+    api_client.force_authenticate(user=None)
+    unknown_scope = api_client.patch(
+        detail,
+        {'scope': 'organization', 'value': 'dark'},
+        format='json',
+    )
+    assert unknown_scope.status_code == status.HTTP_400_BAD_REQUEST
+    assert unknown_scope.json() == {
+        'status': 'success',
+        'data': {'detail': 'Недопустимое значение scope'},
+    }
+
+    unauthenticated = api_client.patch(detail, {'value': 'dark'}, format='json')
+    assert unauthenticated.status_code == status.HTTP_401_UNAUTHORIZED
+    assert unauthenticated.json() == {
+        'status': 'success',
+        'data': {'detail': 'Недостаточно прав'},
+    }
+
+    api_client.force_authenticate(user=user)
+    forbidden = api_client.patch(
+        detail,
+        {'scope': 'global', 'value': 'dark'},
+        format='json',
+    )
+    assert forbidden.status_code == status.HTTP_403_FORBIDDEN
+    assert forbidden.json() == {
+        'status': 'success',
+        'data': {'detail': 'Недостаточно прав'},
+    }
+
+    missing = reverse('confetti:settings-detail', kwargs={'key': 'missing'})
+    not_found_get = api_client.get(missing)
+    not_found_patch = api_client.patch(missing, {'value': True}, format='json')
+
+    for response in (not_found_get, not_found_patch):
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json() == {
+            'status': 'success',
+            'data': {'message': 'Настройка не найдена'},
+        }

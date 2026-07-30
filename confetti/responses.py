@@ -4,6 +4,18 @@ from typing import Any
 from django.http import JsonResponse
 
 
+def build_response(*, data: Any, status: int = 200):
+    """Создать настроенный Confetti response с заданным HTTP-кодом."""
+    from .conf import confetti_settings
+
+    status_kwarg = confetti_settings.RESPONSE_STATUS_KWARG
+    kwargs = {
+        'data': data,
+        status_kwarg: status,
+    }
+    return confetti_settings.RESPONSE_METHOD(**kwargs)
+
+
 def default_response(*, data: Any, status: int = 200):
     """
     Универсальный ответ:

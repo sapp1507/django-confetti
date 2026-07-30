@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Any
 from django.conf import settings as django_settings
+from django.core.exceptions import ImproperlyConfigured
 from django.core.signals import setting_changed
 from django.dispatch import receiver
 from django.utils.module_loading import import_string
@@ -8,6 +9,16 @@ from django.utils.module_loading import import_string
 from .defaults import DEFAULTS
 
 SETTING_NAME = 'CONFETTI'
+
+
+def validate_response_status_kwarg(value: Any) -> str:
+    if not isinstance(value, str) or not value.strip() or value == 'data':
+        raise ImproperlyConfigured(
+            "CONFETTI['RESPONSE_STATUS_KWARG'] must be a non-empty string "
+            "other than 'data'."
+        )
+    return value
+
 
 def _import_if_str(val:Any) -> Any:
     if isinstance(val, str):
@@ -38,10 +49,13 @@ class _APISettings:
             if attr not in self._defaults:
                 raise AttributeError(f'{attr} not found in {SETTING_NAME} settings')
             val = self._defaults[attr]
-        try:
-            val = _import_if_str(val)
-        except Exception:
-            pass
+        if attr == 'RESPONSE_STATUS_KWARG':
+            val = validate_response_status_kwarg(val)
+        else:
+            try:
+                val = _import_if_str(val)
+            except Exception:
+                pass
         self._cached[attr] = val
         return val
 
