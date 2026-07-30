@@ -11,9 +11,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         only = None
-        if options.get('categories-only'):
+        if options.get('categories_only'):
             only = 'categories'
-        if options.get('definitions-only'):
+        if options.get('definitions_only'):
             only = 'definitions'
 
         stats = seed_from_settings(

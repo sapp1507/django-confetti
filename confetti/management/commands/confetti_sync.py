@@ -2,6 +2,10 @@ from django.core.management.base import BaseCommand
 from confetti.seed import seed_from_settings
 
 
+class DryRunRollback(Exception):
+    """Внутренний сигнал для отката успешно рассчитанного dry-run."""
+
+
 class Command(BaseCommand):
     help = (
         "Sync Confetti categories/definitions from settings.CONFETTI. "
@@ -12,7 +16,12 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--update', action='store_true', help='Update safe fields (title/description/enabled/editable)')
-        parser.add_argument('-update-defaults', action='store_true', help='Update default/choices/type')
+        parser.add_argument(
+            '--update-defaults',
+            '-update-defaults',
+            action='store_true',
+            help='Update default/choices/type',
+        )
         parser.add_argument('--categories-only', action='store_true', help='Only sync categories')
         parser.add_argument('--definitions-only', action='store_true', help='Only sync definitions')
         parser.add_argument('--dry-run', action='store_true', help='Dry run')
@@ -38,8 +47,8 @@ class Command(BaseCommand):
                         stderr=self.stderr
                     )
                     self.stdout.write(self.style.WARNING(f'[dry-run] planned stats: {stats}'))
-                    raise  RuntimeError('dry-run rollback')
-            except RuntimeError:
+                    raise DryRunRollback
+            except DryRunRollback:
                 self.stdout.write(self.style.SUCCESS('[dry-run] completed successfully'))
                 return
 

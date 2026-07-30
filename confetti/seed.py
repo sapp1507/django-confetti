@@ -15,7 +15,7 @@ def seed_from_settings(
         *,
         update: bool = False,
         update_defaults: bool = False,
-        only: Optional[Literal['categories', 'definitions']] = None,
+        only: Optional[Literal['categories', 'definition', 'definitions']] = None,
         stdout=None,
         stderr=None,
 ) -> dict:
@@ -23,7 +23,8 @@ def seed_from_settings(
     Создает недостающие сущности из settings.CONFETI.
     Если update-True - безопасно обновлять существующие (title, description, enabled, editable).
     Если update_defaults=True - дополнительно обновлять defaults, choices и type
-    only: 'categories' | 'definitions' - ограничить область.
+    only: 'categories' | 'definitions' - ограничить область. Значение
+    'definition' сохранено как legacy alias для обратной совместимости.
     Возвращает счетчики.
     """
     stats = {'created_categories': 0, 'updated_categories': 0,
@@ -54,7 +55,7 @@ def seed_from_settings(
                     stats['updated_categories'] += 1
                     echo(f'[confetti] updated category: {code}')
 
-    if only in (None, 'definition'):
+    if only in (None, 'definition', 'definitions'):
         for d in confetti_settings.SEED_DEFINITIONS or []:
             key = (d.get('key') or '').strip()
             if not key: continue
