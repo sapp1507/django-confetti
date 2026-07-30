@@ -17,6 +17,7 @@ from .models import (
     SettingValue,
 )
 from .services import (
+    SnapshotValidationError,
     build_global_settings_snapshot_payload,
     restore_global_settings_snapshot,
 )
@@ -39,6 +40,12 @@ class SettingDefinitionAdminForm(forms.ModelForm):
         defn.type = cleaned.get("type", defn.type)
         defn.choices = cleaned.get("choices", defn.choices)
         defn.default = cleaned.get("default", defn.default)
+        defn.required = cleaned.get("required", defn.required)
+        defn.enabled = cleaned.get("enabled", defn.enabled)
+
+        if defn.type == SettingType.BOOL:
+            defn.default = defn.enabled
+            cleaned["default"] = defn.enabled
 
         # простая проверка структуры choices для CHOICE
         if defn.type == SettingType.CHOICE and defn.choices:
@@ -51,8 +58,7 @@ class SettingDefinitionAdminForm(forms.ModelForm):
 
         # валидируем default согласно типу
         try:
-            if defn.default is not None:
-                validate_value(defn, defn.default)
+            cleaned["default"] = validate_value(defn, defn.default)
         except Exception as e:
             raise forms.ValidationError(f'Некорректное значение по умолчанию (default): {e}')
 
@@ -70,9 +76,13 @@ class SettingValueAdminForm(forms.ModelForm):
         value = cleaned.get("value", None)
         if defn is None:
             return cleaned
+        if value is None:
+            raise forms.ValidationError(
+                'Пустое значение override не сохраняется. Удалите запись, чтобы вернуться к fallback.'
+            )
         try:
             # приведёт типы и проверит CHOICE/CRON/RRULE/JSON и т.п.
-            validate_value(defn, value)
+            cleaned["value"] = validate_value(defn, value)
         except Exception as e:
             raise forms.ValidationError(f"Некорректное значение: {e}")
         return cleaned
@@ -147,7 +157,15 @@ def restore_settings_snapshot(modeladmin, request, queryset: QuerySet[SettingsSn
         modeladmin.message_user(request, "Не выбран снимок для восстановления.", level=messages.WARNING)
         return
 
-    result = restore_global_settings_snapshot(snapshot.payload)
+    try:
+        result = restore_global_settings_snapshot(snapshot.payload)
+    except SnapshotValidationError as exc:
+        modeladmin.message_user(
+            request,
+            f"Snapshot #{snapshot.pk} не восстановлен: {exc}",
+            level=messages.ERROR,
+        )
+        return
     modeladmin.message_user(
         request,
         (
@@ -157,6 +175,7 @@ def restore_settings_snapshot(modeladmin, request, queryset: QuerySet[SettingsSn
             f"категорий создано: {result.created_categories}, "
             f"категорий обновлено: {result.updated_categories}, "
             f"глобальных значений обновлено: {result.updated_global_values}, "
+            f"глобальных значений удалено: {result.deleted_global_values}, "
             f"удалено лишних настроек: {result.deleted_definitions}."
         ),
         level=messages.SUCCESS,

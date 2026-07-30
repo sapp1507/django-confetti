@@ -1,3 +1,4 @@
+import django
 from django.conf import settings
 from django.core.validators import RegexValidator
 from django.db import models
@@ -67,11 +68,11 @@ class SettingDefinition(models.Model):
         verbose_name='Описание',
         help_text='Описание настройки'
     )
-    default = models.JSONField(null=True, blank=True, default=[])
+    default = models.JSONField(null=True, blank=True, default=list)
     choices = models.JSONField(
         null=True,
         blank=True,
-        default=[],
+        default=list,
         help_text='Список объектов, у объекта ключ value обязателен, этот ключ храниться в default в виде списка'
     )
     required = models.BooleanField(default=False)
@@ -141,7 +142,25 @@ class SettingValue(models.Model):
         verbose_name = 'Значение настройки'
         verbose_name_plural = 'Значения настроек'
         constraints = [
-            UniqueConstraint(fields=['definition', 'scope', 'user'], name='unique_setting_value')
+            models.CheckConstraint(
+                **{
+                    'condition' if django.VERSION >= (5, 1) else 'check': (
+                    models.Q(scope=SettingScope.GLOBAL, user__isnull=True)
+                    | models.Q(scope=SettingScope.USER, user__isnull=False)
+                    ),
+                    'name': 'valid_setting_scope_user',
+                }
+            ),
+            UniqueConstraint(
+                fields=['definition'],
+                condition=models.Q(scope=SettingScope.GLOBAL, user__isnull=True),
+                name='unique_global_setting_value',
+            ),
+            UniqueConstraint(
+                fields=['definition', 'user'],
+                condition=models.Q(scope=SettingScope.USER, user__isnull=False),
+                name='unique_user_setting_value',
+            ),
         ]
 
     def __str__(self):

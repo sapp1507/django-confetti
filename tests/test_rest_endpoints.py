@@ -1,8 +1,8 @@
-import icecream
 import pytest
 from django.urls import reverse
 
-from confetti.models import SettingDefinition
+from confetti.api import set_value
+from confetti.models import SettingDefinition, SettingScope, SettingValue
 
 drf = pytest.importorskip('rest_framework')
 from rest_framework.test import APIClient
@@ -19,11 +19,42 @@ def api_client():
 def test_list_settings_anonymous(api_client):
     url = reverse('confetti:settings-list')
     r = api_client.get(url)
-    icecream.ic(r)
     assert r.status_code == status.HTTP_200_OK
     # проверим, что пришёл хотя бы наш сид-ключ
     keys = {item['key'] for item in r.json()}
     assert 'feature.jobs' in keys
+    assert 'edit' not in keys
+
+
+def test_list_uses_session_authentication_for_user_override(api_client, user):
+    set_value('ui.theme', 'dark', user=user)
+    api_client.force_login(user)
+
+    response = api_client.get(reverse('confetti:settings-list'))
+
+    theme = next(item for item in response.json() if item['key'] == 'ui.theme')
+    assert theme['user_value'] == 'dark'
+    assert theme['effective'] == 'dark'
+
+
+def test_only_superuser_sees_not_editable_setting_in_list(api_client, django_user_model):
+    staff = django_user_model.objects.create_user(
+        username='list-staff',
+        password='p',
+        is_staff=True,
+    )
+    superuser = django_user_model.objects.create_superuser(
+        username='list-superuser',
+        password='p',
+    )
+
+    api_client.force_authenticate(user=staff)
+    staff_keys = {item['key'] for item in api_client.get(reverse('confetti:settings-list')).json()}
+    assert 'edit' not in staff_keys
+
+    api_client.force_authenticate(user=superuser)
+    superuser_keys = {item['key'] for item in api_client.get(reverse('confetti:settings-list')).json()}
+    assert 'edit' in superuser_keys
 
 
 def test_get_setting_and_patch_user_scope(api_client, user):
@@ -38,10 +69,20 @@ def test_get_setting_and_patch_user_scope(api_client, user):
 
     # PATCH user override
     r_patch = api_client.patch(detail, {'value': 'dark'}, format='json')
-    icecream.ic(r_patch.json())
     assert r_patch.status_code == status.HTTP_200_OK,  f'Не изменено по PATCH'
     assert r_patch.json()['user_value'] == 'dark'
     assert r_patch.json()['effective'] == 'dark'
+
+    # null удаляет override и возвращает default
+    r_reset = api_client.patch(detail, {'value': None}, format='json')
+    assert r_reset.status_code == status.HTTP_200_OK
+    assert r_reset.json()['user_value'] is None
+    assert r_reset.json()['effective'] == 'light'
+    assert not SettingValue.objects.filter(
+        definition__key='ui.theme',
+        scope=SettingScope.USER,
+        user=user,
+    ).exists()
 
 
 def test_patch_global_requires_staff(api_client, user, django_user_model):
@@ -51,6 +92,62 @@ def test_patch_global_requires_staff(api_client, user, django_user_model):
     r = api_client.patch(detail, {'scope': 'global', 'value': False}, format='json')
     assert r.status_code == status.HTTP_200_OK
     assert r.json()['global_value'] is False
+
+    reset = api_client.patch(detail, {'scope': 'global', 'value': None}, format='json')
+    assert reset.status_code == status.HTTP_200_OK
+    assert reset.json()['global_value'] is None
+    assert reset.json()['effective'] is True
+    assert not SettingValue.objects.filter(
+        definition__key='feature.jobs',
+        scope=SettingScope.GLOBAL,
+        user__isnull=True,
+    ).exists()
+
+
+def test_patch_user_scope_requires_authentication(api_client):
+    detail = reverse('confetti:settings-detail', kwargs={'key': 'feature.jobs'})
+
+    response = api_client.patch(detail, {'value': False}, format='json')
+
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.json() == {'detail': 'Недостаточно прав'}
+
+
+def test_patch_global_scope_requires_staff(api_client, user):
+    api_client.force_authenticate(user=user)
+    detail = reverse('confetti:settings-detail', kwargs={'key': 'feature.jobs'})
+
+    response = api_client.patch(
+        detail,
+        {'scope': 'global', 'value': False},
+        format='json',
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.json() == {'detail': 'Недостаточно прав'}
+
+
+def test_patch_rejects_unknown_scope_before_authentication(api_client):
+    detail = reverse('confetti:settings-detail', kwargs={'key': 'feature.jobs'})
+
+    response = api_client.patch(
+        detail,
+        {'scope': 'organization', 'value': False},
+        format='json',
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json() == {'detail': 'Недопустимое значение scope'}
+
+
+def test_patch_reports_invalid_typed_value_as_bad_request(api_client, user):
+    api_client.force_authenticate(user=user)
+    detail = reverse('confetti:settings-detail', kwargs={'key': 'ui.theme'})
+
+    response = api_client.patch(detail, {'value': 'system'}, format='json')
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert 'value' in response.json()
 
 
 def test_frontend_cache_invalidation(api_client, user):
@@ -83,8 +180,9 @@ def test_user_not_allowed_to_edit_not_editable_settings(api_client, user):
     r = api_client.get(url, format='json')
     assert r.status_code == status.HTTP_200_OK
 
-    r = api_client.patch(url, {'value': True}, format='json')
+    r = api_client.patch(url, {'value': False}, format='json')
     assert r.status_code == status.HTTP_200_OK
+    assert r.json()['effective'] is True
 
     user.is_superuser = False
     user.save()
@@ -95,3 +193,16 @@ def test_user_not_allowed_to_edit_not_editable_settings(api_client, user):
 
     r = api_client.patch(url, {'value': True}, format='json')
     assert r.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_staff_cannot_access_not_editable_setting(api_client, django_user_model):
+    staff = django_user_model.objects.create_user(
+        username='protected-staff',
+        password='p',
+        is_staff=True,
+    )
+    api_client.force_authenticate(user=staff)
+    detail = reverse('confetti:settings-detail', kwargs={'key': 'edit'})
+
+    assert api_client.get(detail).status_code == status.HTTP_404_NOT_FOUND
+    assert api_client.patch(detail, {'value': True}, format='json').status_code == status.HTTP_404_NOT_FOUND

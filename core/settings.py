@@ -1,9 +1,4 @@
-import icecream
-from icecream import install
 from pathlib import Path
-
-install()
-ic.configureOutput(includeContext=True)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -147,17 +142,11 @@ CONFETTI = {
         },
         {
             'key': 'list',
-            'type': 'choices',
+            'type': 'choice',
             'category': 'backend',
             'title': 'Тест списка',
             'description': 'Для тестирования мультивыбора',
-            'default': [
-                {
-                    'key': 'admin',
-                    'title': 'Администратор',
-                    'value': 1
-                },
-            ],
+            'default': 1,
             'editable': False,
             'frontend': True,
             'choices': [

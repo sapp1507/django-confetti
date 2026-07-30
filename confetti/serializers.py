@@ -25,6 +25,9 @@ class SettingWriteSerializer(serializers.Serializer):
     def validate(self, attrs):
         defn = self.context['definition']
         value = attrs.get('value')
-        validated_value = validate_value(defn, value)
-        attrs['value'] = validated_value
+        if value is not None:
+            try:
+                attrs['value'] = validate_value(defn, value)
+            except (TypeError, ValueError) as exc:
+                raise serializers.ValidationError({'value': str(exc)}) from exc
         return attrs
