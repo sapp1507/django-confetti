@@ -16,6 +16,7 @@ from .conf import confetti_settings
 
 
 User = get_user_model()
+_CACHE_MISS = object()
 
 
 def _resolve(defn: SettingDefinition, user: Optional[User]):
@@ -59,7 +60,6 @@ class SettingListView(APIView):
     """
 
     permission_classes = [permissions.AllowAny]
-    authentication_classes = []
 
     def get_queryset(self):
         return SettingDefinition.objects.select_related('category').all()
@@ -77,7 +77,7 @@ class SettingListView(APIView):
     )
     def get(self, request):
         user = request.user if getattr(request, 'user', None) and request.user.is_authenticated else None
-        if user and (user.is_staff or user.is_superuser):
+        if user and user.is_superuser:
             defs = self.get_queryset()
         else:
             defs = self.get_queryset().filter(editable=True)
@@ -102,8 +102,11 @@ class SettingFrontendView(APIView):
     )
     def get(self, request):
 
-        cache_frontend = cache.get(f'{confetti_settings.FRONTEND_CACHE_PREFIX}')
-        if cache_frontend:
+        cache_frontend = cache.get(
+            confetti_settings.FRONTEND_CACHE_PREFIX,
+            _CACHE_MISS,
+        )
+        if cache_frontend is not _CACHE_MISS:
             return confetti_settings.RESPONSE_METHOD(
                 data=SettingItemSerializer(cache_frontend, many=True).data)
 
@@ -122,7 +125,7 @@ class SettingDetailView(APIView):
     PATCH /settings/<key>/ - изменить:
         - если scope=user или scope не указан -> создаем/обновляем user-override (только авторизованным)
         - если scope=global -> нужен is_staff/is_superuser
-    Удалять нельзя - только устанавливать значение (в т.ч. None
+    Значение None удаляет override и возвращает настройку к fallback.
     """
 
     def get_object(self, key: str) -> SettingDefinition | None:
@@ -130,7 +133,7 @@ class SettingDetailView(APIView):
             if getattr(self.request, 'user', None) and self.request.user.is_superuser:
                 return SettingDefinition.objects.select_related('category').get(key=key)
             return SettingDefinition.objects.select_related('category').get(key=key, editable=True)
-        except Exception:
+        except SettingDefinition.DoesNotExist:
             return None
 
     @swagger_auto_schema(
@@ -188,12 +191,18 @@ class SettingDetailView(APIView):
 
         scope = request.data.get('scope')
 
+        if scope not in (None, SettingScope.USER, SettingScope.GLOBAL):
+            return confetti_settings.RESPONSE_METHOD(
+                data={'detail': 'Недопустимое значение scope'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Определяем целевой scope
         if scope == SettingScope.GLOBAL:
             if not (request.user and request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser)):
                 return confetti_settings.RESPONSE_METHOD(
                     data={'detail': 'Недостаточно прав'},
-                    code=status.HTTP_403_FORBIDDEN
+                    status=status.HTTP_403_FORBIDDEN,
                 )
 
             user_for_value = None
@@ -202,7 +211,7 @@ class SettingDetailView(APIView):
             if not (request.user and request.user.is_authenticated):
                 return confetti_settings.RESPONSE_METHOD(
                     data={'detail': 'Недостаточно прав'},
-                    code=status.HTTP_401_UNAUTHORIZED
+                    status=status.HTTP_401_UNAUTHORIZED,
                 )
             user_for_value = request.user
             scope_used = SettingScope.USER
@@ -217,12 +226,18 @@ class SettingDetailView(APIView):
         # )
         # sv.value = serializer.validated_data['value']
         # sv.save()
-        set_value(
-            defn.key,
-            serializer.validated_data['value'],
-            user=user_for_value if scope_used == SettingScope.USER else None,
-            scope=scope_used
-        )
+        try:
+            set_value(
+                defn.key,
+                serializer.validated_data['value'],
+                user=user_for_value if scope_used == SettingScope.USER else None,
+                scope=scope_used
+            )
+        except (TypeError, ValueError) as exc:
+            return confetti_settings.RESPONSE_METHOD(
+                data={'value': [str(exc)]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         return confetti_settings.RESPONSE_METHOD(
             data=SettingItemSerializer(_defn_dict(defn, user_for_value)).data
         )

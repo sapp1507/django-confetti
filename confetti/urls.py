@@ -1,5 +1,14 @@
+from django.core.exceptions import ImproperlyConfigured
 from django.urls import path
-from .views import SettingListView, SettingDetailView, SettingFrontendView
+
+try:
+    from .views import SettingDetailView, SettingFrontendView, SettingListView
+except ModuleNotFoundError as exc:
+    if exc.name == 'rest_framework':
+        raise ImproperlyConfigured(
+            "Для подключения confetti.urls установите django-confetti[drf]."
+        ) from exc
+    raise
 
 app_name = 'django_confetti'
 

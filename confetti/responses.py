@@ -1,8 +1,8 @@
-from  __future__ import annotations
+from __future__ import annotations
 from typing import Any
 
-import icecream
 from django.http import JsonResponse
+
 
 def default_response(*, data: Any, status: int = 200):
     """
@@ -12,8 +12,7 @@ def default_response(*, data: Any, status: int = 200):
     """
     try:
         from rest_framework.response import Response
-        return Response(data=data, status=status, content_type='application/json')
-    except Exception:
+    except ImportError:
         safe = isinstance(data, (dict, list))
-        icecream.ic('JsonREsponse')
         return JsonResponse(data, status=status, safe=safe, json_dumps_params={'ensure_ascii': False})
+    return Response(data=data, status=status, content_type='application/json')

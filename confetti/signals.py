@@ -16,6 +16,8 @@ def purge_value_cache(sender, instance, **kwargs):
                      instance.user_id if instance.scope == SettingScope.USER else None))
     cache.delete(_is_enabled_ck(instance.definition.key,
                                 instance.user_id if instance.scope == SettingScope.USER else None))
+    if instance.scope == SettingScope.GLOBAL:
+        cache.delete(confetti_settings.FRONTEND_CACHE_PREFIX)
 
 
 @receiver([post_save, post_delete], sender=SettingDefinition)
@@ -25,17 +27,18 @@ def purge_definition_cache(sender, instance, **kwargs):
       - удаляем глобальный кэш ключ
       - и все ключи для пользовательских оверрайдов этой дефиниции
     """
-    cache.delete(_ck(instance.key), None)
-    cache.delete(_is_enabled_ck(instance.key), None)
-    user_vals =SettingValue.objects.filter(
+    cache.delete(_ck(instance.key))
+    cache.delete(_is_enabled_ck(instance.key))
+    user_vals = SettingValue.objects.filter(
         definition=instance,
         scope=SettingScope.USER,
     ).only('user_id')
     for sv in user_vals:
         cache.delete(_ck(instance.key, sv.user_id))
         cache.delete(_is_enabled_ck(instance.key, sv.user_id))
-    if instance.frontend:
-        cache.delete(confetti_settings.FRONTEND_CACHE_PREFIX)
+    # Очищаем всегда: post_save уже не позволяет надёжно определить переход
+    # frontend=True -> False, а остальные поля definition также входят в ответ.
+    cache.delete(confetti_settings.FRONTEND_CACHE_PREFIX)
 
 def connect_confetti_signals() -> None:
     """
